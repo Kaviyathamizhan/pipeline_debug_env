@@ -64,6 +64,11 @@ app = FastAPI(
 )
 
 
+@app.get("/")
+async def root():
+    return {"message": "Pipeline Debug Env is running"}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
