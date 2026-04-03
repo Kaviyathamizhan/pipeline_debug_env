@@ -1,0 +1,114 @@
+environment:
+  name: pipeline_debug_env
+  version: "1.0.0"
+  description: >
+    OpenEnv-compatible RL environment for diagnosing and repairing broken multi-stage
+    data pipelines. An AI agent acts as a senior data engineer, observing error logs,
+    schema diffs, and data samples to identify and fix injected faults using a
+    structured action space.
+  author: pipeline-debug-team
+  tags:
+    - data-engineering
+    - debugging
+    - reasoning
+    - llm-agent
+  license: MIT
+
+server:
+  host: 0.0.0.0
+  port: 7860
+  protocol: rest
+
+tasks:
+  - name: easy
+    description: "Single schema drift fault. 4 max steps."
+    max_steps: 4
+    num_faults: 1
+    expected_baseline_score: 0.82
+  - name: medium
+    description: "2-3 faults including type mismatch and null propagation. 8 max steps."
+    max_steps: 8
+    num_faults: 3
+    expected_baseline_score: 0.48
+  - name: hard
+    description: "4-5 faults including join key errors and boolean inversions. 12 max steps."
+    max_steps: 12
+    num_faults: 5
+    expected_baseline_score: 0.23
+
+action_schema:
+  type: object
+  required: [action_type, target_node, params]
+  properties:
+    action_type:
+      type: string
+      enum:
+        - patch_schema
+        - rewrite_transform
+        - add_null_guard
+        - reorder_nodes
+        - fix_join_key
+        - invert_filter
+        - add_type_cast
+        - no_op
+    target_node:
+      type: string
+      description: "Name of the pipeline node to apply the action to"
+    params:
+      type: object
+      description: "Action-specific parameters"
+    reasoning:
+      type: string
+      description: "Optional: agent's reasoning for this action"
+
+observation_schema:
+  type: object
+  properties:
+    episode_id:
+      type: string
+    task_level:
+      type: string
+    pipeline_dag:
+      type: object
+      description: "DAG with nodes (name, type, status, sql) and edges"
+    error_log:
+      type: array
+      items:
+        type: string
+    schema_diff:
+      type: object
+      description: "Only mismatched/missing/extra columns vs expected"
+    sample_rows:
+      type: object
+      properties:
+        actual:
+          type: array
+        expected:
+          type: array
+    row_count_diff:
+      type: integer
+    column_stats:
+      type: object
+    step_count:
+      type: integer
+    max_steps:
+      type: integer
+    current_score:
+      type: number
+    action_feedback:
+      type: string
+    done:
+      type: boolean
+
+reward:
+  range: [0.0, 1.0]
+  components:
+    - name: schema_correctness
+      weight: 0.35
+    - name: row_level_accuracy
+      weight: 0.35
+    - name: step_efficiency
+      weight: 0.20
+    - name: penalties
+      max_combined: 0.25
+  success_threshold: 0.95

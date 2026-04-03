@@ -1,0 +1,28 @@
+name: ecommerce_orders
+nodes:
+  - name: ingest
+    node_type: ingest
+    status: ok
+    sql: "SELECT * FROM raw_orders"
+  - name: clean
+    node_type: clean
+    status: ok
+    sql: "SELECT order_id, TRY_CAST(amount AS FLOAT) AS amount, user_id FROM ingest"
+  - name: transform
+    node_type: transform
+    status: ok
+    sql: "SELECT * FROM clean WHERE amount IS NOT NULL"
+  - name: aggregate
+    node_type: aggregate
+    status: ok
+    sql: "SELECT user_id, SUM(amount) as total_revenue FROM transform GROUP BY user_id"
+  - name: output
+    node_type: output
+    status: ok
+    sql: "SELECT * FROM aggregate"
+mock_data:
+  raw_orders:
+    - {"order_id": 1, "amount": "100.50", "user_id": 101}
+    - {"order_id": 2, "amount": "20.00", "user_id": 102}
+    - {"order_id": 3, "amount": "invalid_str", "user_id": 101}
+    - {"order_id": 4, "amount": "50.00", "user_id": 103}

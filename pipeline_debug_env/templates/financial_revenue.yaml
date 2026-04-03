@@ -1,0 +1,24 @@
+name: financial_revenue
+nodes:
+  - name: ingest
+    node_type: ingest
+    status: ok
+    sql: "SELECT * FROM raw_transactions"
+  - name: clean
+    node_type: clean
+    status: ok
+    sql: "SELECT txn_id, TRY_CAST(amount AS FLOAT) AS amount, region, txn_date FROM ingest WHERE amount IS NOT NULL"
+  - name: aggregate
+    node_type: aggregate
+    status: ok
+    sql: "SELECT region, SUM(amount) AS total_revenue, txn_date FROM clean GROUP BY region, txn_date"
+  - name: output
+    node_type: output
+    status: ok
+    sql: "SELECT * FROM aggregate ORDER BY txn_date"
+mock_data:
+  raw_transactions:
+    - {"txn_id": 1, "amount": "500.00", "region": "APAC", "txn_date": "2024-01-01"}
+    - {"txn_id": 2, "amount": "1200.75", "region": "US", "txn_date": "2024-01-01"}
+    - {"txn_id": 3, "amount": "N/A", "region": "EU", "txn_date": "2024-01-01"}
+    - {"txn_id": 4, "amount": "300.50", "region": "APAC", "txn_date": "2024-01-02"}
