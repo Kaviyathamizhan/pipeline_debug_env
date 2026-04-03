@@ -1,3 +1,13 @@
+---
+title: Pipeline Debug Env
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # 🔧 Pipeline Debug Env
 
 **An OpenEnv-compatible reinforcement learning environment for debugging broken data pipelines.**
