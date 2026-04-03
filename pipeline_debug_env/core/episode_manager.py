@@ -50,7 +50,7 @@ class EpisodeManager:
             self.done = True
 
     def get_state(self):
-        from ..models import EpisodeState
+        from .models import EpisodeState
         return EpisodeState(
             episode_id=self.episode_id,
             step_count=self.step_count,

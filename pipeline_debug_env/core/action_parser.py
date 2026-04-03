@@ -1,5 +1,5 @@
 from typing import Dict, Any, Tuple
-from ..models import PipelineAction
+from .models import PipelineAction
 
 class ActionParser:
     def __init__(self, executor):

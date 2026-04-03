@@ -6,7 +6,7 @@ from fastapi.concurrency import run_in_threadpool
 from typing import Any, Dict, Optional
 from contextlib import asynccontextmanager
 
-from .environment import PipelineEnvironment
+from ..core.environment import PipelineEnvironment
 
 
 def ensure_serializable(obj: Any) -> Any:

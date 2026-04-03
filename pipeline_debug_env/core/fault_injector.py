@@ -112,7 +112,7 @@ class FaultInjector:
 
         faulty_dag = copy.deepcopy(template_dag)
 
-        num_faults = {'easy': 1, 'medium': 2, 'hard': 3}.get(task_level, 1)
+        num_faults = {'easy': 1, 'medium': 3, 'hard': 5}.get(task_level, 1)
         # Only target non-output nodes
         eligible_nodes = [n for n in faulty_dag['nodes'] if n.get('node_type') not in ['output']]
 
@@ -133,8 +133,11 @@ class FaultInjector:
                     fault = 'type_mismatch'
                 elif applied_count == 1:
                     fault = 'null_propagation'
-                else:
+                elif applied_count == 2:
                     fault = 'schema_drift'
+                else:
+                    # Stacking extra random faults on top of core cascade
+                    fault = random.choice(self.fault_types)
                     
                 upstream = [n for n in eligible_nodes if n.get('node_type') in ('ingest', 'clean')]
                 node = random.choice(upstream) if upstream else random.choice(eligible_nodes)

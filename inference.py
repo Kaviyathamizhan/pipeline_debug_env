@@ -22,8 +22,6 @@ from typing import Any, Dict, List, Optional
 
 from openai import AsyncOpenAI
 
-# Add parent to path for direct execution
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from pipeline_debug_env.client import PipelineDebugEnvClient
 
 # --- Config from environment ---

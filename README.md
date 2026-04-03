@@ -32,9 +32,9 @@ https://thebosskt-pipeline-debug-env.hf.space
 
 ## 📊 Evaluation
 **System Accuracy Scaling Matrix:**
-- **Easy**   → `0.62`
-- **Medium** → `0.52`
-- **Hard**   → `0.30`
+- **Easy**   → `0.76`
+- **Medium** → `0.58`
+- **Hard**   → `0.37`
 
 *Difficulty Scaling:* The performance decay strictly originates from the logical complexity and topological depth of interacting SQL faults. The reward mechanisms accurately isolate the agent's problem-solving capability across varying tiers of degradation.
 

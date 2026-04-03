@@ -24,17 +24,17 @@ tasks:
     description: "Single schema drift fault. 4 max steps."
     max_steps: 4
     num_faults: 1
-    expected_baseline_score: 0.82
+    expected_baseline_score: 0.65
   - name: medium
-    description: "2-3 faults including type mismatch and null propagation. 8 max steps."
+    description: "3 random spread faults. 8 max steps."
     max_steps: 8
     num_faults: 3
-    expected_baseline_score: 0.48
+    expected_baseline_score: 0.50
   - name: hard
-    description: "4-5 faults including join key errors and boolean inversions. 12 max steps."
+    description: "5 interacting faults (type mismatch + null propagation + schema drift + extras). 12 max steps."
     max_steps: 12
     num_faults: 5
-    expected_baseline_score: 0.23
+    expected_baseline_score: 0.25
 
 action_schema:
   type: object
