@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pipeline-debug-env"
 version = "0.1.0"
+requires-python = ">=3.11"
 description = "OpenEnv RL environment for debugging data pipelines"
 authors = [
   { name="Your Name" }
@@ -14,8 +15,12 @@ dependencies = [
   "uvicorn",
   "duckdb",
   "pandas",
-  "pydantic"
+  "pydantic",
+  "openenv-core>=0.2.0"
 ]
+
+[project.scripts]
+server = "pipeline_debug_env.server.app:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
