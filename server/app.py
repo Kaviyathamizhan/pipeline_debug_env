@@ -1,5 +1,8 @@
-# OpenEnv validator expects server/app.py at the root server/ path.
-# This module re-exports the real FastAPI app from the package.
+import uvicorn
 from pipeline_debug_env.server.app import app
 
-__all__ = ["app"]
+def main():
+    uvicorn.run(app, host="0.0.0.0", port=7860)
+
+if __name__ == "__main__":
+    main()

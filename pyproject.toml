@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
-server = "pipeline_debug_env.server.app:app"
+server = "server.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
