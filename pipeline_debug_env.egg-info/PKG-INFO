@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: pipeline-debug-env
+Version: 0.1.0
+Summary: OpenEnv RL environment for debugging data pipelines
+Author: Your Name
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: duckdb
+Requires-Dist: pandas
+Requires-Dist: pydantic

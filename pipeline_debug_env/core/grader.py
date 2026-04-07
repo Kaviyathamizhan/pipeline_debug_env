@@ -63,7 +63,11 @@ class Grader:
 
         import math
         if math.isnan(final_score) or math.isinf(final_score):
-            final_score = 0.0
+            final_score = 0.05
+
+        # OpenEnv validator requires scores strictly within (0, 1) — never 0.0 or 1.0
+        final_score = max(0.01, min(0.99, final_score))
+
         return round(final_score, 4)
 
     def compare_tables(self, actual: pd.DataFrame, expected: pd.DataFrame) -> float:
