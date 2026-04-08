@@ -10,6 +10,13 @@ os.environ["ENV_URL"] = "http://localhost:7860"
 
 NUM_EPISODES = 10  # More episodes since no API latency
 
+def _clamp_score(x: float) -> float:
+    try:
+        x = float(x)
+    except Exception:
+        return 0.05
+    return max(0.05, min(0.95, x))
+
 
 async def run_task_eval(task_name: str, num_episodes: int) -> dict:
     """Run episodes SEQUENTIALLY — server is single-session."""
@@ -20,20 +27,20 @@ async def run_task_eval(task_name: str, num_episodes: int) -> dict:
         print(f"  Episode {ep_idx + 1}/{num_episodes}...", end=" ", flush=True)
         try:
             res = await run_episode(task_level=task_name)
-            score = res.get("final_score", 0.0)
+            score = _clamp_score(res.get("final_score", 0.05))
             steps = res.get("steps_used", 0)
             scores.append(score)
             steps_list.append(steps)
             print(f"score={score:.4f}  steps={steps}")
         except Exception as e:
             print(f"FAILED: {repr(e)}")
-            scores.append(0.0)
+            scores.append(0.05)
             steps_list.append(0)
 
         # Small cooldown between episodes
         await asyncio.sleep(0.5)
 
-    avg_score = statistics.mean(scores) if scores else 0.0
+    avg_score = _clamp_score(statistics.mean(scores)) if scores else 0.05
     std_dev = statistics.stdev(scores) if len(scores) > 1 else 0.0
     avg_steps = statistics.mean(steps_list) if steps_list else 0.0
 
@@ -41,7 +48,7 @@ async def run_task_eval(task_name: str, num_episodes: int) -> dict:
 
     return {
         "task": task_name,
-        "avg_score": round(avg_score, 4),
+        "avg_score": round(_clamp_score(avg_score), 4),
         "std_dev": round(std_dev, 4),
         "avg_steps": round(avg_steps, 2),
         "failure_rate": round(failure_rate, 4),

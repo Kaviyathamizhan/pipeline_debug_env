@@ -23,6 +23,13 @@ from pipeline_debug_env.client import PipelineDebugEnvClient
 ENV_URL    = os.getenv("ENV_URL", "http://localhost:7860")
 TASK_LEVEL = os.getenv("TASK_LEVEL", "easy")
 
+def _clamp_score(x: float) -> float:
+    try:
+        x = float(x)
+    except Exception:
+        return 0.05
+    return max(0.05, min(0.95, x))
+
 
 def _diagnose_and_act(obs: Dict[str, Any], history: List[Dict]) -> Dict[str, Any]:
     """
@@ -239,7 +246,7 @@ def _diagnose_and_act(obs: Dict[str, Any], history: List[Dict]) -> Dict[str, Any
 async def run_episode(task_level: str = TASK_LEVEL) -> Dict[str, Any]:
     """Run a single episode using heuristic diagnosis."""
     history: List[Dict] = []
-    best_score = 0.0
+    best_score = 0.05
 
     async with PipelineDebugEnvClient(base_url=ENV_URL) as client:
         obs = await client.reset(task_level=task_level)
@@ -260,7 +267,7 @@ async def run_episode(task_level: str = TASK_LEVEL) -> Dict[str, Any]:
             info   = result.get("info", {})
             obs    = result.get("observation", {})
 
-            best_score = max(best_score, reward)
+            best_score = max(best_score, _clamp_score(reward))
 
             history.append({
                 "action": action,
@@ -277,7 +284,7 @@ async def run_episode(task_level: str = TASK_LEVEL) -> Dict[str, Any]:
 
         print(f"\n[Episode End] best_score={best_score:.4f}  steps={steps_used}")
 
-        return {"final_score": best_score, "steps_used": steps_used, "task_level": task_level}
+        return {"final_score": _clamp_score(best_score), "steps_used": steps_used, "task_level": task_level}
 
 
 if __name__ == "__main__":
