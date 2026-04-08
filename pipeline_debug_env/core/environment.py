@@ -52,9 +52,13 @@ class PipelineEnvironment:
         }
 
     def reset(self, task_level: Optional[str] = None) -> Dict[str, Any]:
-        # Force task cycling so validators always observe easy/medium/hard.
-        self.task_level = TASKS[self._task_index % 3]
-        self._task_index += 1
+        # Force task cycling so validators always observe easy/medium/hard,
+        # but still allow explicit task selection when requested.
+        if task_level:
+            self.task_level = task_level
+        else:
+            self.task_level = TASKS[self._task_index % 3]
+            self._task_index += 1
 
         config = TASK_CONFIG.get(self.task_level, TASK_CONFIG['easy'])
         # Use episode-varied seed for template selection
