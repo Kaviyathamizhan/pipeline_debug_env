@@ -233,19 +233,20 @@ async def run_episode(task_level: str = TASK_LEVEL) -> Dict[str, Any]:
 
 if __name__ == "__main__":
     async def _main():
-        results = []
+        scores: Dict[str, float] = {}
         for task in TASKS:
             try:
                 res = await run_episode(task_level=task)
             except Exception:
-                res = {"final_score": 0.05, "steps_used": 0, "task_level": task}
+                res = {"final_score": 0.05, "task_level": task}
 
             score = float(res.get("final_score", 0.05))
             score = max(0.05, min(0.95, score))
-            res["final_score"] = score
-            results.append(res)
+            scores[task] = score
 
         # Emit a single machine-parseable payload containing >=3 tasks.
-        print(json.dumps(results))
+        # Keep it minimal and score-only to avoid parsers mistakenly picking up
+        # unrelated numeric fields (e.g., steps_used = 0).
+        print(json.dumps(scores))
 
     asyncio.run(_main())
