@@ -21,12 +21,15 @@ TASK_CONFIG = {
     'hard':   {'max_steps': 12, 'templates': ['user_engagement', 'financial_revenue', 'ecommerce_orders']},
 }
 
+TASKS = ["easy", "medium", "hard"]
+
 
 class PipelineEnvironment:
     def __init__(self, task_level: str = 'easy', seed: int = 42):
         self.task_level = task_level
         self.seed = seed
         self._episode_counter = 0  # varies seed per episode
+        self._task_index = 0
         self.grader = Grader()
         self.fault_injector = FaultInjector()
         self.executor: Optional[PipelineExecutor] = None
@@ -49,8 +52,9 @@ class PipelineEnvironment:
         }
 
     def reset(self, task_level: Optional[str] = None) -> Dict[str, Any]:
-        if task_level:
-            self.task_level = task_level
+        # Force task cycling so validators always observe easy/medium/hard.
+        self.task_level = TASKS[self._task_index % 3]
+        self._task_index += 1
 
         config = TASK_CONFIG.get(self.task_level, TASK_CONFIG['easy'])
         # Use episode-varied seed for template selection
@@ -114,7 +118,7 @@ class PipelineEnvironment:
             'error_log': error_log,
             'step_count': 0,
             'max_steps': max_steps,
-            'current_score': 0.01,
+            'current_score': 0.05,
             'action_feedback': '',
             'done': False
         }

@@ -16,7 +16,7 @@ def clamp_score(value: float) -> float:
     """Clamp a score to strictly within (0, 1). Never returns 0.0 or 1.0."""
     if math.isnan(value) or math.isinf(value):
         return 0.05
-    return max(0.01, min(0.99, float(value)))
+    return max(0.05, min(0.95, float(value)))
 
 
 def ensure_serializable(obj: Any) -> Any:

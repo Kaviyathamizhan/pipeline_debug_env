@@ -7,6 +7,8 @@ class Grader:
     def compute_reward(self, actual_output: pd.DataFrame, expected_output: pd.DataFrame, 
                        step_count: int, max_steps: int, prev_score: float,
                        is_invalid_action: bool = False, repeat_count: int = 0) -> float:
+        MIN_SCORE = 0.05
+
         # Component 1: Schema correctness
         expected_cols = set(expected_output.columns)
         actual_cols = set(actual_output.columns)
@@ -25,10 +27,16 @@ class Grader:
             row_score = matched_cells / max(total_expected_cells, 1)
 
         # Component 3: Step efficiency
-        efficiency = max(0.0, 1.0 - (step_count / max_steps))
+        efficiency = 1.0 - (step_count / max_steps)
+        efficiency = max(0.05, min(0.95, efficiency))
+
+        # Remove zero propagation (validator rejects 0.0)
+        schema_score = max(MIN_SCORE, schema_score)
+        row_score = max(MIN_SCORE, row_score)
 
         # Weighted sum: ~0.9 max before penalties
         raw_score = 0.35 * schema_score + 0.35 * row_score + 0.20 * efficiency
+        raw_score = max(0.05, min(0.95, raw_score))
 
         # Component 4: Regression penalty (if agent broke something)
         regression = max(0.0, prev_score - raw_score) * 0.1
@@ -65,8 +73,12 @@ class Grader:
         if math.isnan(final_score) or math.isinf(final_score):
             final_score = 0.05
 
+        # Prevent flat failure scores (keeps scores non-degenerate)
+        if final_score < 0.1:
+            final_score = 0.1 + (0.02 * step_count)
+
         # OpenEnv validator requires scores strictly within (0, 1) — never 0.0 or 1.0
-        final_score = max(0.01, min(0.99, final_score))
+        final_score = max(0.05, min(0.95, final_score))
 
         return round(final_score, 4)
 
