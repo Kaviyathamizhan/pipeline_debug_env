@@ -54,7 +54,8 @@ def clamp_response_scores(obj: Any) -> Any:
     if isinstance(obj, dict):
         result = {}
         for k, v in obj.items():
-            if k in ("reward", "current_score", "best_score") and isinstance(v, (int, float)):
+            # Clamp any score-like numeric fields so nothing can leak 0.0 or 1.0.
+            if k in ("reward", "current_score", "best_score", "final_score", "avg_score") and isinstance(v, (int, float)):
                 result[k] = clamp_score(float(v))
             else:
                 result[k] = clamp_response_scores(v)

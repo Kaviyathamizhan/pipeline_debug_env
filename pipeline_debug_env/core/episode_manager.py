@@ -6,8 +6,9 @@ class EpisodeManager:
         self.task_level = task_level
         self.max_steps = max_steps
         self.step_count = 0
-        self.current_score = 0.01
-        self.best_score = 0.01
+        # Keep scores strictly inside (0, 1) to satisfy validators.
+        self.current_score = 0.05
+        self.best_score = 0.05
         self.score_history = []
         self.action_history = []
         self.done = False
