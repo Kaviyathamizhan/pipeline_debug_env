@@ -1,3 +1,10 @@
+spec_version: 1
+name: pipeline_debug_env
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
+
 environment:
   name: pipeline_debug_env
   version: "1.0.0"
@@ -25,16 +32,19 @@ tasks:
     max_steps: 4
     num_faults: 1
     expected_baseline_score: 0.65
+    grader: pipeline_debug_env.core.grader:Grader
   - name: medium
     description: "3 random spread faults. 8 max steps."
     max_steps: 8
     num_faults: 3
     expected_baseline_score: 0.50
+    grader: pipeline_debug_env.core.grader:Grader
   - name: hard
     description: "5 interacting faults (type mismatch + null propagation + schema drift + extras). 12 max steps."
     max_steps: 12
     num_faults: 5
     expected_baseline_score: 0.25
+    grader: pipeline_debug_env.core.grader:Grader
 
 action_schema:
   type: object
@@ -101,7 +111,7 @@ observation_schema:
       type: boolean
 
 reward:
-  range: [0.0, 1.0]
+  range: [0.01, 0.99]
   components:
     - name: schema_correctness
       weight: 0.35
