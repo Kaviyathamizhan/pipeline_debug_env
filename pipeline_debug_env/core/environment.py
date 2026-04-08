@@ -114,7 +114,7 @@ class PipelineEnvironment:
             'error_log': error_log,
             'step_count': 0,
             'max_steps': max_steps,
-            'current_score': 0.0,
+            'current_score': 0.01,
             'action_feedback': '',
             'done': False
         }

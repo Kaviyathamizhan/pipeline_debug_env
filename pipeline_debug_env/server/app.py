@@ -96,7 +96,7 @@ async def reset_endpoint(body: Dict[str, Any] = {}):
             "column_stats": {},
             "step_count": 0,
             "max_steps": 4,
-            "current_score": 0.0,
+            "current_score": 0.01,
             "action_feedback": "",
             "done": True,
         })
@@ -109,7 +109,7 @@ async def step_endpoint(action: Dict[str, Any]):
     if env is None or env.episode_manager is None:
         return ensure_serializable({
             "observation": {},
-            "reward": 0.0,
+            "reward": 0.01,
             "done": True,
             "info": {"error": "No active episode. Call /reset first."},
         })
@@ -120,7 +120,7 @@ async def step_endpoint(action: Dict[str, Any]):
         traceback.print_exc()
         return ensure_serializable({
             "observation": {},
-            "reward": 0.0,
+            "reward": 0.01,
             "done": True,
             "info": {"error": str(e)},
         })
@@ -135,8 +135,8 @@ async def state_endpoint():
             "episode_id": "",
             "step_count": 0,
             "max_steps": 0,
-            "current_score": 0.0,
-            "best_score": 0.0,
+            "current_score": 0.01,
+            "best_score": 0.01,
             "task_level": "",
             "done": True,
         })
@@ -149,8 +149,8 @@ async def state_endpoint():
             "episode_id": "",
             "step_count": 0,
             "max_steps": 0,
-            "current_score": 0.0,
-            "best_score": 0.0,
+            "current_score": 0.01,
+            "best_score": 0.01,
             "task_level": "",
             "done": True,
         })
