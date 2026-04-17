@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Pipeline Debugging Agent</title>
+    <meta name="description" content="Watch an RL agent detect and fix data pipeline failures in real time">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+/* ================================================================
+   CSS DESIGN SYSTEM — Dark Premium Theme
+   ================================================================ */
+:root {
+    --bg-primary: #06060f;
+    --bg-secondary: #0c0c1d;
+    --bg-card: rgba(12, 12, 30, 0.85);
+    --bg-card-hover: rgba(18, 18, 45, 0.92);
+    --border-subtle: rgba(99, 102, 241, 0.12);
+    --border-active: rgba(99, 102, 241, 0.45);
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --accent-glow: rgba(99, 102, 241, 0.25);
+    --violet: #8b5cf6;
+    --success: #10b981;
+    --success-glow: rgba(16, 185, 129, 0.25);
+    --error: #ef4444;
+    --error-glow: rgba(239, 68, 68, 0.25);
+    --warning: #f59e0b;
+    --warning-glow: rgba(245, 158, 11, 0.2);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: var(--font-body);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+/* ---- Background Grid ---- */
+.grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+        linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+}
+.grid-bg::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(99,102,241,0.08), transparent);
+}
+
+#app { position: relative; z-index: 1; }
+
+.hidden { display: none !important; }
+
+/* ================================================================
+   LANDING PAGE
+   ================================================================ */
+#landing {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 2rem;
+    text-align: center;
+}
+.badge {
+    display: inline-block;
+    background: rgba(99,102,241,0.12); color: var(--accent-light);
+    padding: 6px 16px; border-radius: 20px; font-size: 0.82rem;
+    font-weight: 600; letter-spacing: 0.5px; border: 1px solid rgba(99,102,241,0.2);
+    margin-bottom: 1.2rem;
+}
+#landing h1 {
+    font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 900;
+    line-height: 1.1; margin-bottom: 1rem;
+    background: linear-gradient(135deg, #f1f5f9 0%, #818cf8 50%, #6366f1 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+#landing .subtitle {
+    font-size: 1.1rem; color: var(--text-secondary);
+    max-width: 540px; margin: 0 auto 2.5rem;
+}
+.scenario-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem; max-width: 780px; width: 100%;
+}
+.scenario-card {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius); padding: 1.8rem 1.4rem;
+    cursor: pointer; transition: var(--transition); position: relative; overflow: hidden;
+    backdrop-filter: blur(12px);
+}
+.scenario-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 60%, rgba(99,102,241,0.06));
+    transition: var(--transition);
+}
+.scenario-card:hover {
+    border-color: var(--border-active);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(99,102,241,0.15);
+}
+.scenario-card .icon { font-size: 2.2rem; display: block; margin-bottom: 0.8rem; }
+.scenario-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; }
+.scenario-card p { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1rem; }
+.difficulty {
+    display: inline-block; font-size: 0.7rem; font-weight: 700;
+    padding: 3px 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.difficulty.easy { background: rgba(16,185,129,0.15); color: var(--success); }
+.difficulty.medium { background: rgba(245,158,11,0.15); color: var(--warning); }
+.difficulty.hard { background: rgba(239,68,68,0.15); color: var(--error); }
+
+.tech-tags {
+    display: flex; gap: 0.5rem; justify-content: center;
+    flex-wrap: wrap; margin-top: 2rem;
+}
+.tech-tag {
+    font-size: 0.72rem; color: var(--text-muted);
+    padding: 4px 10px; border-radius: 6px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ================================================================
+   BRIEFING OVERLAY
+   ================================================================ */
+#briefing {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(6,6,15,0.92); backdrop-filter: blur(8px);
+}
+.alert-container {
+    background: var(--bg-card); border: 1px solid rgba(239,68,68,0.3);
+    border-radius: var(--radius-lg); padding: 2.5rem; max-width: 520px; width: 90%;
+    text-align: center; position: relative; overflow: hidden;
+    animation: alertSlideIn 0.5s ease-out;
+}
+.alert-container::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--error), var(--warning), var(--error));
+    animation: alertBar 2s linear infinite;
+}
+@keyframes alertSlideIn { from { opacity: 0; transform: scale(0.9) translateY(20px); } }
+@keyframes alertBar { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+.alert-icon { font-size: 3rem; margin-bottom: 1rem; animation: alertPulse 1.5s ease-in-out infinite; }
+@keyframes alertPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+.alert-container h2 {
+    font-size: 1.5rem; font-weight: 800; color: var(--error);
+    letter-spacing: 1px; margin-bottom: 1.2rem;
+}
+.fault-list { text-align: left; margin: 1rem 0 1.5rem; }
+.fault-item {
+    display: flex; align-items: flex-start; gap: 0.6rem;
+    padding: 0.6rem 0.8rem; margin-bottom: 0.5rem;
+    background: rgba(239,68,68,0.06); border-radius: var(--radius-sm);
+    border-left: 3px solid var(--error); font-size: 0.85rem;
+}
+.fault-item.medium { border-left-color: var(--warning); background: rgba(245,158,11,0.06); }
+.fault-severity {
+    font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+    text-transform: uppercase; white-space: nowrap;
+}
+.fault-severity.high { background: rgba(239,68,68,0.2); color: var(--error); }
+.fault-severity.medium { background: rgba(245,158,11,0.2); color: var(--warning); }
+.fault-detail { color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.78rem; }
+
+#deploy-btn {
+    background: linear-gradient(135deg, var(--accent), var(--violet));
+    color: white; border: none; padding: 14px 36px; border-radius: var(--radius);
+    font-size: 1rem; font-weight: 700; cursor: pointer; transition: var(--transition);
+    letter-spacing: 0.5px;
+}
+#deploy-btn:hover { transform: scale(1.05); box-shadow: 0 6px 24px var(--accent-glow); }
+
+/* ================================================================
+   MISSION — HEADER & CONTROLS
+   ================================================================ */
+#mission { padding: 1rem 1.5rem 3rem; max-width: 1200px; margin: 0 auto; }
+
+.mission-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;
+    padding: 0.8rem 1.2rem; background: var(--bg-card);
+    border: 1px solid var(--border-subtle); border-radius: var(--radius);
+}
+.mission-title {
+    display: flex; align-items: center; gap: 0.6rem;
+    font-weight: 600; font-size: 0.9rem;
+}
+.status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success); animation: dotPulse 2s ease-in-out infinite;
+}
+@keyframes dotPulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--success-glow); } 50% { opacity: 0.7; box-shadow: 0 0 0 6px transparent; } }
+
+.controls { display: flex; gap: 0.5rem; }
+.controls button {
+    padding: 8px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);
+    background: var(--bg-card); color: var(--text-primary); font-size: 0.8rem;
+    font-weight: 600; cursor: pointer; transition: var(--transition); font-family: var(--font-body);
+}
+.controls button:hover { border-color: var(--accent); background: rgba(99,102,241,0.08); }
+.controls button.active { background: var(--accent); border-color: var(--accent); color: white; }
+.controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---- Health Bar ---- */
+.health-section { margin-bottom: 1.2rem; }
+.health-bar-wrap {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.8rem 1.2rem; background: var(--bg-card);
+    border: 1px solid var(--border-subtle); border-radius: var(--radius);
+}
+.health-bar-label { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.health-bar {
+    flex: 1; height: 12px; background: rgba(255,255,255,0.06);
+    border-radius: 6px; overflow: hidden; position: relative;
+}
+.health-fill {
+    height: 100%; width: 5%; border-radius: 6px;
+    background: linear-gradient(90deg, var(--error), var(--warning), var(--success));
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+.health-fill::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: healthShine 2s ease-in-out infinite;
+}
+@keyframes healthShine { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.health-pct { font-size: 0.85rem; font-weight: 700; color: var(--accent-light); min-width: 40px; text-align: right; }
+
+/* ================================================================
+   MAIN GRID — DAG + AGENT PANEL
+   ================================================================ */
+.main-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 1.2rem;
+}
+@media (max-width: 800px) { .main-grid { grid-template-columns: 1fr; } }
+
+.panel {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius); overflow: hidden;
+    backdrop-filter: blur(12px); transition: var(--transition);
+}
+.panel:hover { border-color: rgba(99,102,241,0.2); }
+.panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.9rem 1.2rem; border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.85rem; font-weight: 600;
+}
+.panel-badge {
+    font-size: 0.65rem; font-weight: 700; padding: 3px 8px;
+    border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.panel-badge.faulty { background: rgba(239,68,68,0.15); color: var(--error); }
+.panel-badge.analyzing { background: rgba(245,158,11,0.15); color: var(--warning); }
+.panel-badge.healthy { background: rgba(16,185,129,0.15); color: var(--success); }
+.panel-badge.idle { background: rgba(100,116,139,0.15); color: var(--text-muted); }
+.panel-badge.thinking { background: rgba(99,102,241,0.15); color: var(--accent-light); animation: badgePulse 1.5s infinite; }
+@keyframes badgePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* ---- DAG Visualization ---- */
+.dag-container {
+    padding: 1.5rem; display: flex; align-items: center;
+    justify-content: center; gap: 0; flex-wrap: wrap; min-height: 140px;
+}
+.dag-node {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100px; height: 90px; border-radius: var(--radius);
+    border: 2px solid var(--border-subtle); background: rgba(255,255,255,0.02);
+    transition: var(--transition); position: relative; cursor: default;
+}
+.dag-node .node-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+.dag-node .node-name {
+    font-size: 0.72rem; font-weight: 600; text-transform: capitalize;
+}
+.dag-node .node-type {
+    font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Node States */
+.dag-node.broken {
+    border-color: var(--error); background: rgba(239,68,68,0.06);
+    animation: nodePulseRed 2s ease-in-out infinite;
+}
+@keyframes nodePulseRed {
+    0%, 100% { box-shadow: 0 0 0 0 var(--error-glow); }
+    50% { box-shadow: 0 0 16px 4px var(--error-glow); }
+}
+.dag-node.target {
+    border-color: var(--warning); background: rgba(245,158,11,0.08);
+    box-shadow: 0 0 20px 4px var(--warning-glow);
+    animation: nodeTargetGlow 1.2s ease-in-out infinite;
+}
+@keyframes nodeTargetGlow {
+    0%, 100% { box-shadow: 0 0 12px 2px var(--warning-glow); }
+    50% { box-shadow: 0 0 24px 8px var(--warning-glow); }
+}
+.dag-node.fixed {
+    border-color: var(--success); background: rgba(16,185,129,0.06);
+    animation: nodeFixFlash 0.6s ease-out;
+}
+@keyframes nodeFixFlash {
+    0% { box-shadow: 0 0 30px 10px var(--success-glow); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}
+.dag-node.output-node { border-style: dashed; opacity: 0.6; }
+
+.dag-arrow {
+    font-size: 1.2rem; color: var(--text-muted); margin: 0 0.3rem;
+    transition: var(--transition);
+}
+.dag-arrow.active { color: var(--warning); text-shadow: 0 0 8px var(--warning-glow); }
+.dag-arrow.fixed { color: var(--success); }
+
+/* Node status badge */
+.node-status {
+    position: absolute; top: -8px; right: -8px;
+    font-size: 0.8rem; width: 20px; height: 20px; display: flex;
+    align-items: center; justify-content: center;
+    background: var(--bg-primary); border-radius: 50%;
+}
+
+/* ---- Agent Panel ---- */
+.agent-content { padding: 1.2rem; min-height: 200px; }
+
+.agent-idle {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 160px; color: var(--text-muted);
+}
+.pulse-circle {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 2px solid var(--accent); opacity: 0.3;
+    animation: pulseIdle 2s ease-in-out infinite; margin-bottom: 1rem;
+}
+@keyframes pulseIdle {
+    0%, 100% { transform: scale(1); opacity: 0.2; }
+    50% { transform: scale(1.3); opacity: 0.5; }
+}
+
+.agent-thinking {
+    text-align: center; color: var(--accent-light);
+    animation: fadeInUp 0.4s ease-out;
+}
+.agent-thinking .scan-icon { font-size: 2rem; animation: spin 2s linear infinite; margin-bottom: 0.5rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.agent-thinking p { font-size: 0.85rem; }
+
+.agent-decision { animation: fadeInUp 0.4s ease-out; }
+.agent-decision .decision-header {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-bottom: 1rem; font-weight: 700; font-size: 0.95rem;
+}
+.decision-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.82rem;
+}
+.decision-row .label { color: var(--text-secondary); }
+.decision-row .value { font-weight: 600; font-family: var(--font-mono); font-size: 0.78rem; }
+
+.confidence-bar {
+    height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px;
+    margin-top: 0.3rem; overflow: hidden;
+}
+.confidence-fill {
+    height: 100%; border-radius: 3px; transition: width 0.6s ease;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+}
+
+.reasoning-box {
+    margin-top: 1rem; padding: 0.8rem; border-radius: var(--radius-sm);
+    background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.12);
+    font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5;
+    font-family: var(--font-mono);
+}
+.reasoning-box .cursor-blink {
+    display: inline-block; width: 2px; height: 14px;
+    background: var(--accent-light); vertical-align: middle;
+    animation: blink 0.8s step-end infinite; margin-left: 2px;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ================================================================
+   METRICS ROW
+   ================================================================ */
+.metrics-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem;
+    margin-bottom: 1.2rem;
+}
+@media (max-width: 600px) { .metrics-row { grid-template-columns: repeat(2, 1fr); } }
+
+.metric-card {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius); padding: 1rem 1.2rem; text-align: center;
+}
+.metric-value {
+    font-size: 1.4rem; font-weight: 800; font-family: var(--font-mono);
+    background: linear-gradient(135deg, var(--text-primary), var(--accent-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.metric-value.positive { -webkit-text-fill-color: var(--success); }
+.metric-value.negative { -webkit-text-fill-color: var(--error); }
+.metric-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.3rem; }
+
+/* ================================================================
+   BEFORE / AFTER COMPARISON
+   ================================================================ */
+.comparison-grid {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.8rem;
+    padding: 1.2rem; align-items: stretch;
+}
+.comparison-side {
+    padding: 1rem; border-radius: var(--radius-sm); font-family: var(--font-mono);
+    font-size: 0.78rem; line-height: 1.8; overflow-x: auto;
+}
+.comparison-side.before {
+    background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15);
+}
+.comparison-side.after {
+    background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.15);
+}
+.comparison-label {
+    font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
+    margin-bottom: 0.6rem;
+}
+.comparison-arrow {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; color: var(--text-muted);
+}
+.sql-line { white-space: pre-wrap; word-break: break-all; }
+.sql-highlight { background: rgba(245,158,11,0.2); padding: 1px 3px; border-radius: 3px; }
+
+/* ================================================================
+   STEP HISTORY
+   ================================================================ */
+.history-list { padding: 0.8rem 1.2rem; max-height: 300px; overflow-y: auto; }
+.history-item {
+    display: flex; align-items: flex-start; gap: 0.8rem;
+    padding: 0.8rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+    animation: fadeInUp 0.4s ease-out; font-size: 0.82rem;
+}
+.history-step-num {
+    min-width: 28px; height: 28px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;
+    background: var(--accent); color: white; flex-shrink: 0;
+}
+.history-step-num.success { background: var(--success); }
+.history-step-num.fail { background: var(--error); }
+.history-details { flex: 1; }
+.history-action { font-weight: 600; margin-bottom: 0.2rem; }
+.history-meta { font-size: 0.72rem; color: var(--text-muted); }
+.history-empty { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem; }
+
+/* ================================================================
+   MISSION COMPLETE OVERLAY
+   ================================================================ */
+#complete {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(6,6,15,0.95); backdrop-filter: blur(12px);
+}
+.success-container {
+    text-align: center; animation: alertSlideIn 0.5s ease-out;
+    background: var(--bg-card); border: 1px solid rgba(16,185,129,0.3);
+    border-radius: var(--radius-lg); padding: 3rem; max-width: 480px; width: 90%;
+    position: relative; overflow: hidden;
+}
+.success-container::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--success), var(--accent), var(--success));
+}
+.success-icon { font-size: 4rem; margin-bottom: 1rem; }
+.success-container h2 {
+    font-size: 1.6rem; font-weight: 800; margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, var(--success), var(--accent-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.final-stats { margin-bottom: 2rem; }
+.final-stat {
+    display: flex; justify-content: space-between; padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.9rem;
+}
+.final-stat .fs-label { color: var(--text-secondary); }
+.final-stat .fs-value { font-weight: 700; font-family: var(--font-mono); }
+.success-container button {
+    background: linear-gradient(135deg, var(--success), var(--accent));
+    color: white; border: none; padding: 12px 32px; border-radius: var(--radius);
+    font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: var(--transition);
+}
+.success-container button:hover { transform: scale(1.05); }
+
+/* Confetti Particles */
+.confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 101; overflow: hidden; }
+.confetti {
+    position: absolute; width: 8px; height: 8px; border-radius: 2px;
+    top: -10px; animation: confettiFall linear forwards;
+}
+@keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* Score chart mini */
+.score-chart { margin-top: 1rem; }
+.score-chart-bar {
+    display: flex; align-items: flex-end; gap: 4px; height: 60px; padding: 0 0.5rem;
+}
+.score-bar {
+    flex: 1; background: var(--accent); border-radius: 3px 3px 0 0;
+    transition: height 0.4s ease; min-width: 12px;
+}
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width: 600px) {
+    #mission { padding: 0.8rem; }
+    .mission-header { flex-direction: column; align-items: stretch; }
+    .comparison-grid { grid-template-columns: 1fr; }
+    .comparison-arrow { transform: rotate(90deg); }
+}
+    </style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div id="app">
+
+    <!-- ============================================================
+         LANDING PAGE
+         ============================================================ -->
+    <section id="landing">
+        <div class="badge">🤖 Reinforcement Learning Powered</div>
+        <h1>Autonomous Pipeline<br>Debugging Agent</h1>
+        <p class="subtitle">Watch an RL agent detect and fix data pipeline failures in real time — schema drift, null propagation, type mismatches, and more.</p>
+
+        <div class="scenario-grid">
+            <div class="scenario-card" onclick="startMission('easy')" id="card-easy">
+                <span class="icon">⚡</span>
+                <h3>Schema Drift</h3>
+                <p>Column renames break downstream queries across the pipeline</p>
+                <span class="difficulty easy">Easy</span>
+            </div>
+            <div class="scenario-card" onclick="startMission('medium')" id="card-medium">
+                <span class="icon">💀</span>
+                <h3>Null Explosion</h3>
+                <p>Missing data propagates through multi-stage transformations</p>
+                <span class="difficulty medium">Medium</span>
+            </div>
+            <div class="scenario-card" onclick="startMission('hard')" id="card-hard">
+                <span class="icon">🔥</span>
+                <h3>Cascading Failures</h3>
+                <p>Multiple interacting faults create misleading error patterns</p>
+                <span class="difficulty hard">Hard</span>
+            </div>
+        </div>
+
+        <div class="tech-tags">
+            <span class="tech-tag">FastAPI</span>
+            <span class="tech-tag">DuckDB</span>
+            <span class="tech-tag">Reinforcement Learning</span>
+            <span class="tech-tag">DAG Pipelines</span>
+            <span class="tech-tag">Heuristic Agent</span>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         MISSION BRIEFING OVERLAY
+         ============================================================ -->
+    <section id="briefing" class="hidden">
+        <div class="alert-container">
+            <div class="alert-icon">🚨</div>
+            <h2>PIPELINE FAILURE DETECTED</h2>
+            <div id="briefing-details" class="fault-list"></div>
+            <button id="deploy-btn" onclick="deployAgent()">DEPLOY AGENT ▶</button>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         ACTIVE MISSION
+         ============================================================ -->
+    <section id="mission" class="hidden">
+        <!-- Header -->
+        <div class="mission-header">
+            <div class="mission-title">
+                <span class="status-dot"></span>
+                <span>Mission Active — <strong id="mission-task">Easy</strong></span>
+            </div>
+            <div class="controls">
+                <button id="step-btn" onclick="manualStep()">Next Step ▶</button>
+                <button id="auto-btn" onclick="toggleAutoMode()">Auto Mode ⚡</button>
+                <button id="reset-btn" onclick="resetToLanding()">✕</button>
+            </div>
+        </div>
+
+        <!-- Health Bar -->
+        <div class="health-section">
+            <div class="health-bar-wrap">
+                <span class="health-bar-label">System Health</span>
+                <div class="health-bar">
+                    <div class="health-fill" id="health-fill"></div>
+                </div>
+                <span class="health-pct" id="health-pct">5%</span>
+            </div>
+        </div>
+
+        <!-- Main Grid: DAG + Agent -->
+        <div class="main-grid">
+            <div class="panel" id="pipeline-panel">
+                <div class="panel-header">
+                    <span>📊 Pipeline Flow</span>
+                    <span class="panel-badge faulty" id="dag-status">FAULTY</span>
+                </div>
+                <div class="dag-container" id="dag-container"></div>
+            </div>
+
+            <div class="panel" id="agent-panel">
+                <div class="panel-header">
+                    <span>🧠 Agent Intelligence</span>
+                    <span class="panel-badge idle" id="agent-status">IDLE</span>
+                </div>
+                <div class="agent-content" id="agent-content">
+                    <div class="agent-idle">
+                        <div class="pulse-circle"></div>
+                        <p>Agent standing by…</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics -->
+        <div class="metrics-row">
+            <div class="metric-card">
+                <div class="metric-value" id="m-steps">0 / 4</div>
+                <div class="metric-label">Steps Taken</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="m-score">0.05</div>
+                <div class="metric-label">Current Score</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="m-delta">+0.00</div>
+                <div class="metric-label">Last Delta</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" id="m-fixed">0</div>
+                <div class="metric-label">Issues Fixed</div>
+            </div>
+        </div>
+
+        <!-- Before / After -->
+        <div class="panel" id="comparison-panel" style="display:none">
+            <div class="panel-header"><span>🔍 Before vs After</span></div>
+            <div class="comparison-grid">
+                <div class="comparison-side before">
+                    <div class="comparison-label">❌ Before</div>
+                    <div id="before-content"></div>
+                </div>
+                <div class="comparison-arrow">→</div>
+                <div class="comparison-side after">
+                    <div class="comparison-label">✅ After</div>
+                    <div id="after-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Chart -->
+        <div class="panel" id="chart-panel" style="display:none">
+            <div class="panel-header"><span>📈 Score Progression</span></div>
+            <div class="score-chart">
+                <div class="score-chart-bar" id="score-chart-bar"></div>
+            </div>
+        </div>
+
+        <!-- Step History -->
+        <div class="panel" id="history-panel">
+            <div class="panel-header">
+                <span>📋 Mission Log</span>
+                <span class="panel-badge idle" id="history-count">0 entries</span>
+            </div>
+            <div class="history-list" id="history-list">
+                <div class="history-empty">No actions taken yet. Deploy the agent to begin.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================
+         MISSION COMPLETE OVERLAY
+         ============================================================ -->
+    <section id="complete" class="hidden"></section>
+</div>
+
+<!-- ================================================================
+     JAVASCRIPT — Application Logic
+     ================================================================ -->
+<script>
+/* ================================================================
+   STATE MANAGEMENT
+   ================================================================ */
+const API = window.location.origin;
+
+const state = {
+    phase: 'landing',       // landing | briefing | active | complete
+    observation: null,      // current environment observation
+    history: [],            // action history for agent context
+    scores: [],             // score progression
+    autoMode: false,        // auto-play toggle
+    autoTimer: null,        // auto-play interval id
+    running: false,         // prevent concurrent steps
+    fixedNodes: new Set(),  // track fixed node names
+    currentTarget: null,    // node currently targeted by agent
+    taskLevel: 'easy',
+    issuesFixed: 0,
+    beforeDAG: null,        // DAG state before action (for comparison)
+};
+
+
+/* ================================================================
+   PHASE TRANSITIONS — show/hide page sections
+   ================================================================ */
+function showPhase(phase) {
+    state.phase = phase;
+    ['landing', 'briefing', 'mission', 'complete'].forEach(id => {
+        document.getElementById(id).classList.toggle('hidden', id !== phase);
+    });
+}
+
+
+/* ================================================================
+   API HELPERS
+   ================================================================ */
+async function api(endpoint, body = null) {
+    const opts = { headers: { 'Content-Type': 'application/json' } };
+    if (body !== null) {
+        opts.method = 'POST';
+        opts.body = JSON.stringify(body);
+    }
+    const res = await fetch(`${API}${endpoint}`, opts);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+}
+
+
+/* ================================================================
+   1. START MISSION — reset env + show briefing
+   ================================================================ */
+async function startMission(taskLevel) {
+    state.taskLevel = taskLevel;
+    state.history = [];
+    state.scores = [];
+    state.fixedNodes = new Set();
+    state.issuesFixed = 0;
+    state.currentTarget = null;
+    state.autoMode = false;
+
+    try {
+        // Reset the environment
+        const obs = await api('/reset', { task_level: taskLevel });
+        state.observation = obs;
+        state.scores.push(obs.current_score || 0.05);
+
+        // Analyze faults for briefing
+        const analysis = await api('/analyze', { observation: obs });
+
+        // Populate briefing
+        const details = document.getElementById('briefing-details');
+        details.innerHTML = analysis.faults.map(f => `
+            <div class="fault-item ${f.severity}">
+                <span class="fault-severity ${f.severity}">${f.severity}</span>
+                <div>
+                    <strong>${f.type}</strong>
+                    <div class="fault-detail">${f.detail}</div>
+                </div>
+            </div>
+        `).join('');
+
+        showPhase('briefing');
+    } catch (err) {
+        alert('Failed to connect to backend. Is the server running?\n\n' + err.message);
+    }
+}
+
+
+/* ================================================================
+   2. DEPLOY AGENT — transition to mission view
+   ================================================================ */
+function deployAgent() {
+    showPhase('mission');
+
+    // Set mission label
+    const labels = { easy: 'Easy — Schema Drift', medium: 'Medium — Multi-Fault', hard: 'Hard — Cascading Failures' };
+    document.getElementById('mission-task').textContent = labels[state.taskLevel] || state.taskLevel;
+
+    // Render initial DAG
+    renderDAG(state.observation);
+    updateMetrics();
+    updateScoreChart();
+
+    // Clear history
+    document.getElementById('history-list').innerHTML =
+        '<div class="history-empty">Agent deployed. Awaiting first analysis…</div>';
+}
+
+
+/* ================================================================
+   3. EXECUTE STEP — core agent loop (one iteration)
+   ================================================================ */
+async function executeStep() {
+    if (state.running || !state.observation || state.observation.done) return;
+    state.running = true;
+    setButtonsDisabled(true);
+
+    try {
+        // --- Phase A: Agent analyzes ---
+        setAgentStatus('thinking', 'ANALYZING');
+        showAgentThinking();
+
+        const agentResp = await api('/agent_action', {
+            observation: state.observation,
+            history: state.history,
+        });
+
+        // --- Phase B: Show agent decision ---
+        state.currentTarget = agentResp.action.target_node;
+        highlightTargetNode(agentResp.action.target_node);
+        await showAgentDecision(agentResp);
+
+        // Store before-state for comparison
+        state.beforeDAG = JSON.parse(JSON.stringify(state.observation.pipeline_dag));
+        const beforeSQL = getNodeSQL(state.beforeDAG, agentResp.action.target_node);
+
+        // --- Phase C: Execute action ---
+        setAgentStatus('analyzing', 'APPLYING');
+        await delay(600);
+
+        const result = await api('/step', agentResp.action);
+
+        // --- Phase D: Process results ---
+        state.observation = result.observation;
+        const reward = result.reward || state.observation.current_score || 0.05;
+        const scoreDelta = result.info?.score_delta || 0;
+
+        state.scores.push(reward);
+        state.history.push({
+            action: agentResp.action,
+            score_delta: scoreDelta,
+            action_feedback: result.info?.action_error || '',
+        });
+
+        // Track fixes
+        if (scoreDelta > 0.01 && agentResp.action.action_type !== 'no_op') {
+            state.fixedNodes.add(agentResp.action.target_node);
+            state.issuesFixed++;
+        }
+        state.currentTarget = null;
+
+        // --- Phase E: Update UI ---
+        renderDAG(state.observation);
+        updateMetrics();
+        updateScoreChart();
+
+        // Before / After comparison
+        const afterSQL = getNodeSQL(state.observation.pipeline_dag, agentResp.action.target_node);
+        showComparison(agentResp, beforeSQL, afterSQL, scoreDelta);
+
+        // Add to history log
+        addHistoryEntry(agentResp, scoreDelta, result.info);
+
+        // Set final agent status
+        if (scoreDelta > 0.01) {
+            setAgentStatus('healthy', 'FIX APPLIED ✓');
+        } else {
+            setAgentStatus('idle', 'NO CHANGE');
+        }
+
+        // Update health bar color
+        updateHealthBar(reward);
+
+        // Check if done
+        if (result.done || state.observation.done) {
+            await delay(1200);
+            showMissionComplete(reward);
+            return;
+        }
+
+        // Continue if auto mode
+        if (state.autoMode) {
+            state.autoTimer = setTimeout(() => executeStep(), 2000);
+        }
+    } catch (err) {
+        console.error('Step error:', err);
+        setAgentStatus('faulty', 'ERROR');
+    } finally {
+        state.running = false;
+        setButtonsDisabled(false);
+    }
+}
+
+
+/* ================================================================
+   4. MANUAL STEP + AUTO MODE
+   ================================================================ */
+function manualStep() {
+    if (state.autoMode) toggleAutoMode();
+    executeStep();
+}
+
+function toggleAutoMode() {
+    state.autoMode = !state.autoMode;
+    const btn = document.getElementById('auto-btn');
+
+    if (state.autoMode) {
+        btn.classList.add('active');
+        btn.textContent = 'Stop ⏸';
+        executeStep();
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = 'Auto Mode ⚡';
+        if (state.autoTimer) {
+            clearTimeout(state.autoTimer);
+            state.autoTimer = null;
+        }
+    }
+}
+
+
+/* ================================================================
+   DAG RENDERING
+   ================================================================ */
+const NODE_ICONS = {
+    ingest: '📥', clean: '🧹', transform: '🔄',
+    aggregate: '📊', output: '📤', validate: '✅',
+};
+
+function renderDAG(obs) {
+    const container = document.getElementById('dag-container');
+    const nodes = obs?.pipeline_dag?.nodes || [];
+    container.innerHTML = '';
+
+    nodes.forEach((node, i) => {
+        // Determine node visual state
+        let nodeClass = 'dag-node';
+        let statusIcon = '';
+
+        if (node.node_type === 'output') {
+            nodeClass += ' output-node';
+            statusIcon = '📤';
+        } else if (state.fixedNodes.has(node.name)) {
+            nodeClass += ' fixed';
+            statusIcon = '✅';
+        } else if (state.currentTarget === node.name) {
+            nodeClass += ' target';
+            statusIcon = '🎯';
+        } else if (node.node_type !== 'output') {
+            nodeClass += ' broken';
+            statusIcon = '❌';
+        }
+
+        const el = document.createElement('div');
+        el.className = nodeClass;
+        el.id = `node-${node.name}`;
+        el.innerHTML = `
+            <div class="node-status">${statusIcon}</div>
+            <div class="node-icon">${NODE_ICONS[node.node_type] || '⚙️'}</div>
+            <div class="node-name">${node.name}</div>
+            <div class="node-type">${node.node_type}</div>
+        `;
+        el.title = node.sql || '';
+        container.appendChild(el);
+
+        // Arrow between nodes
+        if (i < nodes.length - 1) {
+            const arrow = document.createElement('div');
+            let arrowClass = 'dag-arrow';
+            if (state.fixedNodes.has(node.name)) arrowClass += ' fixed';
+            arrow.className = arrowClass;
+            arrow.textContent = '→';
+            container.appendChild(arrow);
+        }
+    });
+}
+
+function highlightTargetNode(nodeName) {
+    const el = document.getElementById(`node-${nodeName}`);
+    if (el) {
+        el.className = 'dag-node target';
+        const status = el.querySelector('.node-status');
+        if (status) status.textContent = '🎯';
+    }
+}
+
+
+/* ================================================================
+   AGENT PANEL UI
+   ================================================================ */
+function showAgentThinking() {
+    document.getElementById('agent-content').innerHTML = `
+        <div class="agent-thinking">
+            <div class="scan-icon">🔍</div>
+            <p>Scanning pipeline nodes…</p>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">
+                Analyzing error logs, schema diffs, and SQL patterns
+            </p>
+        </div>
+    `;
+}
+
+async function showAgentDecision(agentResp) {
+    const confPct = Math.round(agentResp.confidence * 100);
+    const confColor = confPct >= 80 ? 'var(--success)' : confPct >= 50 ? 'var(--warning)' : 'var(--error)';
+
+    document.getElementById('agent-content').innerHTML = `
+        <div class="agent-decision">
+            <div class="decision-header">🎯 Agent Decision</div>
+            <div class="decision-row">
+                <span class="label">Action</span>
+                <span class="value">${formatAction(agentResp.action.action_type)}</span>
+            </div>
+            <div class="decision-row">
+                <span class="label">Target</span>
+                <span class="value">${agentResp.action.target_node || '—'}</span>
+            </div>
+            <div class="decision-row">
+                <span class="label">Detected Fault</span>
+                <span class="value">${agentResp.detected_fault}</span>
+            </div>
+            <div class="decision-row">
+                <span class="label">Confidence</span>
+                <span class="value" style="color:${confColor}">${confPct}%</span>
+            </div>
+            <div class="confidence-bar">
+                <div class="confidence-fill" style="width:${confPct}%"></div>
+            </div>
+            <div class="decision-row">
+                <span class="label">Expected Reward</span>
+                <span class="value" style="color:var(--success)">+${agentResp.expected_reward.toFixed(2)}</span>
+            </div>
+            <div class="reasoning-box">
+                <span id="reasoning-text"></span><span class="cursor-blink"></span>
+            </div>
+        </div>
+    `;
+
+    setAgentStatus('thinking', 'DECIDED');
+    await typeWriter(document.getElementById('reasoning-text'), agentResp.reasoning, 18);
+}
+
+function setAgentStatus(cls, text) {
+    const badge = document.getElementById('agent-status');
+    badge.className = `panel-badge ${cls}`;
+    badge.textContent = text;
+}
+
+
+/* ================================================================
+   METRICS + HEALTH BAR
+   ================================================================ */
+function updateMetrics() {
+    const obs = state.observation;
+    if (!obs) return;
+
+    const steps = obs.step_count || 0;
+    const maxSteps = obs.max_steps || 4;
+    const score = state.scores[state.scores.length - 1] || 0.05;
+    const prevScore = state.scores.length > 1 ? state.scores[state.scores.length - 2] : score;
+    const delta = score - prevScore;
+
+    document.getElementById('m-steps').textContent = `${steps} / ${maxSteps}`;
+    document.getElementById('m-score').textContent = score.toFixed(2);
+
+    const deltaEl = document.getElementById('m-delta');
+    deltaEl.textContent = `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`;
+    deltaEl.className = `metric-value ${delta > 0.01 ? 'positive' : delta < -0.01 ? 'negative' : ''}`;
+
+    document.getElementById('m-fixed').textContent = state.issuesFixed;
+
+    // Update DAG status badge
+    const dagBadge = document.getElementById('dag-status');
+    if (score >= 0.9) {
+        dagBadge.className = 'panel-badge healthy';
+        dagBadge.textContent = 'HEALTHY';
+    } else if (score >= 0.5) {
+        dagBadge.className = 'panel-badge analyzing';
+        dagBadge.textContent = 'REPAIRING';
+    } else {
+        dagBadge.className = 'panel-badge faulty';
+        dagBadge.textContent = 'FAULTY';
+    }
+
+    updateHealthBar(score);
+}
+
+function updateHealthBar(score) {
+    const pct = Math.round(Math.max(5, Math.min(100, score * 100)));
+    document.getElementById('health-fill').style.width = `${pct}%`;
+    document.getElementById('health-pct').textContent = `${pct}%`;
+}
+
+function updateScoreChart() {
+    if (state.scores.length < 2) {
+        document.getElementById('chart-panel').style.display = 'none';
+        return;
+    }
+    document.getElementById('chart-panel').style.display = '';
+    const container = document.getElementById('score-chart-bar');
+    container.innerHTML = '';
+
+    const maxScore = Math.max(...state.scores, 0.1);
+    state.scores.forEach((s, i) => {
+        const bar = document.createElement('div');
+        bar.className = 'score-bar';
+        const h = Math.max(4, (s / maxScore) * 56);
+        bar.style.height = `${h}px`;
+        if (s >= 0.9) bar.style.background = 'var(--success)';
+        else if (s >= 0.5) bar.style.background = 'var(--warning)';
+        else bar.style.background = 'var(--error)';
+        bar.title = `Step ${i}: ${s.toFixed(3)}`;
+        container.appendChild(bar);
+    });
+}
+
+
+/* ================================================================
+   BEFORE / AFTER COMPARISON
+   ================================================================ */
+function showComparison(agentResp, beforeSQL, afterSQL, delta) {
+    const panel = document.getElementById('comparison-panel');
+    if (!beforeSQL && !afterSQL) { panel.style.display = 'none'; return; }
+    panel.style.display = '';
+
+    const node = agentResp.action.target_node;
+    const action = formatAction(agentResp.action.action_type);
+
+    document.getElementById('before-content').innerHTML = `
+        <div style="margin-bottom:0.5rem;font-weight:600;color:var(--error)">Node: ${node}</div>
+        <div class="sql-line">${escapeHTML(beforeSQL || 'N/A')}</div>
+    `;
+    document.getElementById('after-content').innerHTML = `
+        <div style="margin-bottom:0.5rem;font-weight:600;color:var(--success)">Node: ${node} (${action})</div>
+        <div class="sql-line">${escapeHTML(afterSQL || 'N/A')}</div>
+        <div style="margin-top:0.5rem;font-size:0.75rem;color:var(--text-muted)">
+            Score Δ: <span style="color:${delta > 0 ? 'var(--success)' : 'var(--error)'}">${delta >= 0 ? '+' : ''}${delta.toFixed(4)}</span>
+        </div>
+    `;
+}
+
+
+/* ================================================================
+   HISTORY LOG
+   ================================================================ */
+function addHistoryEntry(agentResp, delta, info) {
+    const list = document.getElementById('history-list');
+    // Remove empty state
+    const empty = list.querySelector('.history-empty');
+    if (empty) empty.remove();
+
+    const stepNum = state.history.length;
+    const success = delta > 0.01;
+
+    const entry = document.createElement('div');
+    entry.className = 'history-item';
+    entry.innerHTML = `
+        <div class="history-step-num ${success ? 'success' : ''}">${stepNum}</div>
+        <div class="history-details">
+            <div class="history-action">${formatAction(agentResp.action.action_type)} → ${agentResp.action.target_node}</div>
+            <div class="history-meta">
+                ${agentResp.detected_fault} · Confidence: ${Math.round(agentResp.confidence * 100)}% ·
+                Δ ${delta >= 0 ? '+' : ''}${delta.toFixed(4)}
+            </div>
+        </div>
+    `;
+    list.prepend(entry);
+
+    document.getElementById('history-count').textContent = `${stepNum} entries`;
+}
+
+
+/* ================================================================
+   MISSION COMPLETE
+   ================================================================ */
+function showMissionComplete(finalScore) {
+    state.autoMode = false;
+    if (state.autoTimer) clearTimeout(state.autoTimer);
+
+    const section = document.getElementById('complete');
+    const success = finalScore >= 0.7;
+    const icon = success ? '🎉' : '⚠️';
+    const title = success ? 'MISSION COMPLETE' : 'MISSION ENDED';
+
+    section.innerHTML = `
+        <div class="success-container">
+            <div class="success-icon">${icon}</div>
+            <h2>${title}</h2>
+            <div class="final-stats">
+                <div class="final-stat"><span class="fs-label">Final Score</span><span class="fs-value">${finalScore.toFixed(4)}</span></div>
+                <div class="final-stat"><span class="fs-label">Task Level</span><span class="fs-value">${state.taskLevel.toUpperCase()}</span></div>
+                <div class="final-stat"><span class="fs-label">Steps Used</span><span class="fs-value">${state.history.length}</span></div>
+                <div class="final-stat"><span class="fs-label">Issues Fixed</span><span class="fs-value">${state.issuesFixed}</span></div>
+                <div class="final-stat"><span class="fs-label">Max Steps</span><span class="fs-value">${state.observation?.max_steps || '?'}</span></div>
+            </div>
+            <button onclick="resetToLanding()">New Mission →</button>
+        </div>
+    `;
+
+    showPhase('complete');
+
+    if (success) spawnConfetti();
+}
+
+function spawnConfetti() {
+    const container = document.createElement('div');
+    container.className = 'confetti-container';
+    document.body.appendChild(container);
+
+    const colors = ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
+    for (let i = 0; i < 60; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = Math.random() * 100 + '%';
+        c.style.background = colors[Math.floor(Math.random() * colors.length)];
+        c.style.animationDuration = (2 + Math.random() * 3) + 's';
+        c.style.animationDelay = Math.random() * 1.5 + 's';
+        c.style.width = (4 + Math.random() * 8) + 'px';
+        c.style.height = (4 + Math.random() * 8) + 'px';
+        container.appendChild(c);
+    }
+    setTimeout(() => container.remove(), 6000);
+}
+
+function resetToLanding() {
+    state.autoMode = false;
+    if (state.autoTimer) clearTimeout(state.autoTimer);
+    showPhase('landing');
+}
+
+
+/* ================================================================
+   UTILITY FUNCTIONS
+   ================================================================ */
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function typeWriter(el, text, speed = 25) {
+    el.textContent = '';
+    for (let i = 0; i < text.length; i++) {
+        el.textContent += text[i];
+        await delay(speed);
+    }
+}
+
+function formatAction(actionType) {
+    const map = {
+        rewrite_transform: 'Rewrite Transform',
+        add_null_guard: 'Add Null Guard',
+        add_type_cast: 'Add Type Cast',
+        patch_schema: 'Patch Schema',
+        no_op: 'No-Op (Pass)',
+    };
+    return map[actionType] || actionType;
+}
+
+function getNodeSQL(dag, nodeName) {
+    if (!dag || !dag.nodes) return null;
+    const node = dag.nodes.find(n => n.name === nodeName);
+    return node ? node.sql : null;
+}
+
+function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function setButtonsDisabled(disabled) {
+    document.getElementById('step-btn').disabled = disabled;
+}
+</script>
+</body>
+</html>

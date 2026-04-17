@@ -7,6 +7,10 @@ from typing import Any, Dict, Optional
 from contextlib import asynccontextmanager
 
 from ..core.environment import PipelineEnvironment
+import pathlib
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from .demo_routes import router as demo_router
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +95,17 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# ---------------------------------------------------------------------------
+# Demo UI integration — wrapper layer, no core logic modification
+# ---------------------------------------------------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(demo_router)
 
 
 @app.get("/")
@@ -231,3 +246,11 @@ async def state_endpoint():
             "task_level": "",
             "done": True,
         }
+
+
+# ---------------------------------------------------------------------------
+# Serve demo UI static files — MUST be last (catch-all mount)
+# ---------------------------------------------------------------------------
+_ui_dir = pathlib.Path(__file__).parent / "ui"
+if _ui_dir.is_dir():
+    app.mount("/ui", StaticFiles(directory=str(_ui_dir), html=True), name="ui")
