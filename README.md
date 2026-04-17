@@ -1,3 +1,13 @@
+---
+title: Pipeline Debug Env
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # 🚀 Pipeline Debug Env — RL Environment for Debugging Data Pipelines
 
 ## 🧠 Overview
