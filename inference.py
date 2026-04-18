@@ -61,10 +61,15 @@ ACTION TYPES:
 - invert_filter: flip a WHERE condition (params: filter_expression)
 - no_op: signal pipeline is fixed (params: {})
 
+CRITICAL RULES:
+- "target_node" MUST be one of the node names listed under NODE STATUSES in the observation.
+- NEVER leave target_node empty or use a placeholder.
+- For no_op, set target_node to the first node in the DAG.
+
 RESPOND WITH JSON ONLY — no explanation, no markdown:
 {
   "action_type": "<type>",
-  "target_node": "<node name from pipeline_dag>",
+  "target_node": "<exact node name from NODE STATUSES list>",
   "params": { <action-specific parameters> },
   "reasoning": "<1-2 sentence explanation>"
 }"""
@@ -130,6 +135,14 @@ def _format_obs(obs: Dict[str, Any], history: List[Dict]) -> str:
     parts.append("\n=== CURRENT OBSERVATION ===")
     parts.append(f"Step: {obs.get('step_count')} / {obs.get('max_steps')}")
     parts.append(f"Score: {obs.get('current_score'):.4f}")
+
+    # Always list available node names so LLM never uses an empty target_node
+    dag = obs.get("pipeline_dag", {})
+    nodes = dag.get("nodes", [])
+    node_names = [n["name"] for n in nodes if isinstance(n, dict) and n.get("name")]
+    if node_names:
+        parts.append(f"\nAVAILABLE NODES (use one of these as target_node): {node_names}")
+        parts.append(f"DEFAULT NODE (use if unsure): {node_names[0]}")
 
     # Errors
     errors = obs.get("error_log", [])
